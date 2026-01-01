@@ -1,0 +1,272 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>感恩三件事</title>
+<style>
+  :root {
+    --primary-color: #bac7be;
+    --text-color: #333;
+    --bg-color: #ffffff;
+    --border-color: #eeeeee;
+    --muted-color: #e0e0e0;
+  }
+
+  body { font-family: sans-serif; background: var(--bg-color); margin: 0; padding: 0; color: var(--text-color); display: flex; flex-direction: column; align-items: center; }
+
+  header { 
+    width: 100%; 
+    max-width: 500px; 
+    padding: 40px 20px 10px; 
+    display: flex; 
+    justify-content: space-between; 
+    align-items: center; 
+    box-sizing: border-box; 
+  }
+  .month-picker { display: flex; align-items: center; font-size: 20px; font-weight: 300; }
+  #monthDisplay { display: inline-block; min-width: 120px; text-align: center; }
+  .arrow { cursor: pointer; padding: 5px 15px; user-select: none; }
+
+  .today-btn {
+    font-size: 14px;
+    background: #f5f5f5;
+    padding: 4px 12px;
+    border-radius: 15px;
+    cursor: pointer;
+    color: #888;
+    transition: all 0.2s;
+    border: none;
+    margin-right: 10px;
+  }
+  .today-btn:hover { background: var(--primary-color); color: white; }
+
+  .year-section { display: flex; align-items: center; }
+
+  .calendar { display: grid; grid-template-columns: repeat(7, 1fr); width: 90%; max-width: 500px; margin: 20px auto; text-align: center; }
+  .weekday { font-size: 12px; color: #bbb; padding-bottom: 20px; text-transform: uppercase; letter-spacing: 1px; }
+  
+  .day { padding: 15px 0; cursor: pointer; font-size: 16px; position: relative; border-radius: 50%; }
+  .day.not-current { color: var(--muted-color); }
+  
+  .day.selected::after { content: ""; position: absolute; bottom: 8px; left: 30%; width: 40%; height: 2.5px; background: #333; }
+  .day.has-entry::before { content: ""; position: absolute; top: 8px; right: 25%; width: 5px; height: 5px; background: var(--primary-color); border-radius: 50%; }
+  .day.is-real-today { color: var(--primary-color); font-weight: bold; }
+
+  .divider { width: 100%; border-top: 1px solid var(--border-color); margin: 20px 0; }
+
+  .detail-section { width: 90%; max-width: 500px; padding: 0 20px; box-sizing: border-box; }
+  .detail-date { font-size: 18px; margin-bottom: 20px; display: flex; align-items: baseline; }
+  .detail-date span { font-size: 28px; margin-right: 10px; border-bottom: 3px solid #333; line-height: 1; }
+
+  /* --- 優化的數字 + 綠線樣式 --- */
+  .entry-list { list-style: none; padding: 0; margin: 0; }
+  .entry-list li { 
+    margin-bottom: 18px; 
+    font-size: 17px; 
+    color: #444; 
+    border-left: 4px solid var(--primary-color); /* 裝飾綠線 */
+    padding-left: 15px; 
+    line-height: 1.5;
+    display: flex;
+    align-items: flex-start;
+  }
+  .entry-num {
+    font-weight: bold;
+    color: var(--primary-color);
+    margin-right: 8px;
+    font-family: serif; /* 數字使用襯線體會更有質感 */
+  }
+
+  .no-entry { color: #999; font-size: 16px; margin-top: 30px; text-align: center; font-style: italic; }
+
+  .fab { position: fixed; bottom: 40px; right: 30px; width: 65px; height: 65px; background: var(--primary-color); border-radius: 50%; border: none; box-shadow: 0 4px 12px rgba(0,0,0,0.15); cursor: pointer; display: flex; align-items: center; justify-content: center; transition: transform 0.2s; }
+  .fab svg { width: 28px; height: 28px; fill: white; }
+
+  #modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: white; z-index: 1000; flex-direction: column; align-items: center; justify-content: center; }
+  .modal-content { width: 85%; max-width: 400px; }
+  .modal-content input { width: 100%; padding: 15px 0; margin: 10px 0; border: none; border-bottom: 1px solid #eee; font-size: 18px; outline: none; }
+  .save-btn { width: 100%; padding: 15px; background: var(--primary-color); color: white; border: none; border-radius: 8px; font-size: 16px; cursor: pointer; }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="month-picker">
+    <span class="arrow" onclick="changeMonth(-1)">〈</span>
+    <span id="monthDisplay"></span>
+    <span class="arrow" onclick="changeMonth(1)">〉</span>
+  </div>
+  <div class="year-section">
+    <button class="today-btn" onclick="goToToday()">Today</button>
+    <div id="yearDisplay" style="font-weight: 300; font-size: 20px;"></div>
+  </div>
+</header>
+
+<div class="calendar" id="calendar"></div>
+<div class="divider"></div>
+
+<div class="detail-section">
+  <div class="detail-date" id="dateHeader"></div>
+  <div id="entryListContainer"></div>
+</div>
+
+<button class="fab" onclick="openModal()" id="mainFab">
+  <svg id="fabIcon" viewBox="0 0 24 24"><path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/></svg>
+</button>
+
+<div id="modal">
+  <div class="modal-content">
+    <h2 id="modalDateLabel" style="font-weight: 300;"></h2>
+    <input type="text" id="i1" placeholder="第一件感恩的事">
+    <input type="text" id="i2" placeholder="第二件感恩的事">
+    <input type="text" id="i3" placeholder="第三件感恩的事">
+    <div style="margin-top: 30px;">
+      <button class="save-btn" onclick="save()">完成儲存</button>
+      <button onclick="closeModal()" style="width:100%; background:none; border:none; margin-top:15px; color:#999; cursor:pointer;">取消</button>
+      <button onclick="del()" style="width:100%; background:none; border:none; margin-top:15px; color:#ffb3b3; cursor:pointer;">刪除今日紀錄</button>
+    </div>
+  </div>
+</div>
+
+<script>
+  let viewDate = new Date(); 
+  let selectedStr = new Date().toISOString().split('T')[0]; 
+  const realTodayStr = new Date().toISOString().split('T')[0];
+  const months = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
+
+  const iconPlus = "M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z";
+  const iconEdit = "M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04c.39-.39.39-1.02 0-1.41l-2.34-2.34c-.39-.39-1.02-.39-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z";
+
+  function render() {
+    const cal = document.getElementById('calendar');
+    cal.innerHTML = '';
+    ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'].forEach(d => {
+      const el = document.createElement('div'); el.className = 'weekday'; el.innerText = d; cal.appendChild(el);
+    });
+
+    const y = viewDate.getFullYear(), m = viewDate.getMonth();
+    document.getElementById('monthDisplay').innerText = months[m];
+    document.getElementById('yearDisplay').innerText = y;
+
+    const firstDayIdx = (new Date(y, m, 1).getDay() + 6) % 7;
+    const daysInMonth = new Date(y, m + 1, 0).getDate();
+    const prevMonthDays = new Date(y, m, 0).getDate();
+
+    for (let i = firstDayIdx; i > 0; i--) {
+      const d = prevMonthDays - i + 1;
+      const dateStr = formatDate(m === 0 ? y-1 : y, m === 0 ? 12 : m, d);
+      createDayElement(d, dateStr, true);
+    }
+    for (let d = 1; d <= daysInMonth; d++) {
+      const dateStr = formatDate(y, m + 1, d);
+      createDayElement(d, dateStr, false);
+    }
+    const currentCells = cal.children.length - 7;
+    for (let d = 1; d <= (42 - currentCells); d++) {
+      const dateStr = formatDate(m === 11 ? y+1 : y, m === 11 ? 1 : m + 2, d);
+      createDayElement(d, dateStr, true);
+    }
+    updateDetail();
+    updateFabIcon();
+  }
+
+  function formatDate(y, m, d) {
+    return `${y}-${String(m).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
+  }
+
+  function createDayElement(dayNum, dateStr, isNotCurrent) {
+    const cal = document.getElementById('calendar');
+    const div = document.createElement('div');
+    div.className = 'day';
+    if (isNotCurrent) div.classList.add('not-current');
+    if (dateStr === realTodayStr) div.classList.add('is-real-today');
+    div.innerText = dayNum;
+    if (dateStr === selectedStr) div.classList.add('selected');
+    if (hasData(dateStr)) div.classList.add('has-entry');
+    div.onclick = () => {
+      selectedStr = dateStr;
+      const clickedDate = new Date(dateStr);
+      if (clickedDate.getMonth() !== viewDate.getMonth()) viewDate = new Date(clickedDate.getFullYear(), clickedDate.getMonth(), 1);
+      render(); 
+    };
+    cal.appendChild(div);
+  }
+
+  function goToToday() {
+    viewDate = new Date();
+    selectedStr = realTodayStr;
+    render();
+  }
+
+  function hasData(dateStr) {
+    const history = JSON.parse(localStorage.getItem('gratitudeHistory') || '[]');
+    const entry = history.find(e => e.date === dateStr);
+    return entry && entry.items.some(txt => txt.trim() !== '');
+  }
+
+  function updateFabIcon() {
+    const iconPath = document.querySelector('#fabIcon path');
+    if (hasData(selectedStr)) iconPath.setAttribute('d', iconEdit);
+    else iconPath.setAttribute('d', iconPlus);
+  }
+
+  function updateDetail() {
+    const [y, m, d] = selectedStr.split('-');
+    document.getElementById('dateHeader').innerHTML = `<span>${d}</span> ${months[parseInt(m)-1].substring(0,3)} ${y}`;
+    const history = JSON.parse(localStorage.getItem('gratitudeHistory') || '[]');
+    const entry = history.find(e => e.date === selectedStr);
+    const container = document.getElementById('entryListContainer');
+
+    if (entry && entry.items.some(i => i.trim() !== '')) {
+      // 修改這裡：加入 entry-num 標籤
+      const validItems = entry.items.filter(i => i.trim() !== '');
+      container.innerHTML = `<ul class="entry-list">` + 
+        validItems.map((i, index) => `<li><span class="entry-num">${index + 1}.</span> ${i}</li>`).join('') + 
+        `</ul>`;
+    } else {
+      container.innerHTML = `<div class="no-entry">No diary entry on this day</div>`;
+    }
+  }
+
+  function changeMonth(step) {
+    viewDate.setMonth(viewDate.getMonth() + step);
+    render();
+  }
+
+  function openModal() {
+    document.getElementById('modalDateLabel').innerText = selectedStr;
+    const history = JSON.parse(localStorage.getItem('gratitudeHistory') || '[]');
+    const entry = history.find(e => e.date === selectedStr);
+    document.getElementById('i1').value = entry?.items[0] || '';
+    document.getElementById('i2').value = entry?.items[1] || '';
+    document.getElementById('i3').value = entry?.items[2] || '';
+    document.getElementById('modal').style.display = 'flex';
+  }
+
+  function closeModal() { document.getElementById('modal').style.display = 'none'; }
+
+  function save() {
+    const items = [document.getElementById('i1').value, document.getElementById('i2').value, document.getElementById('i3').value];
+    let history = JSON.parse(localStorage.getItem('gratitudeHistory') || '[]');
+    const idx = history.findIndex(e => e.date === selectedStr);
+    if (idx >= 0) history[idx].items = items;
+    else history.push({ date: selectedStr, items });
+    localStorage.setItem('gratitudeHistory', JSON.stringify(history));
+    closeModal();
+    render();
+  }
+
+  function del() {
+    if(!confirm('刪除紀錄？')) return;
+    let history = JSON.parse(localStorage.getItem('gratitudeHistory') || '[]');
+    history = history.filter(e => e.date !== selectedStr);
+    localStorage.setItem('gratitudeHistory', JSON.stringify(history));
+    closeModal();
+    render();
+  }
+
+  render();
+</script>
+</body>
+</html>
